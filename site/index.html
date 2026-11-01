@@ -93,6 +93,7 @@
     <h1>LDSAMRA call-outs</h1>
     <p class="sub" id="sub">Loading the latest figures…</p>
     <p class="take" id="take"></p>
+    <p class="explain" id="waitNote" hidden></p>
   </header>
 
   <nav class="years" id="years" aria-label="Choose a year"></nav>
@@ -294,6 +295,9 @@ function drawHeader() {
   const rc = detailTotals("Root cause", y, m);
   if (rc) { const top = Object.entries(rc).sort((a, b) => b[1] - a[1])[0]; if (top) take += ` The top root cause ${part ? "is" : "was"} ${top[0]}.`; }
   $("take").textContent = take;
+  const w = S.waiting;
+  $("waitNote").hidden = !w;
+  if (w) $("waitNote").textContent = `Figures for ${w.year} will appear here shortly. Until then the latest full figures are shown.`;
   $("updated").textContent = "Last updated " + new Date(S.updated).toLocaleDateString("en-GB", { dateStyle:"long" }) + ".";
   document.querySelectorAll(".yThis").forEach((e) => e.textContent = String(y));
   document.querySelectorAll(".yLast").forEach((e) => e.textContent = String(ly));

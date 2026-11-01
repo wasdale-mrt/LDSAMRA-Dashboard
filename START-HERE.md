@@ -61,6 +61,23 @@ handover notes in the private `ldsamra-stats` repository before rearranging.
 - Older years: main figures from 2019, team hours from 2024, breakdowns from
   2025, map from 2026.
 
+## A new year
+
+The workbook's export sheets follow the yellow year cell on the Summary sheet
+(B4). Each January:
+
+1. Finish December's entries and team hours, and build the annual report.
+2. Change B4 to the new year. Until then, the new year's call-outs are not
+   counted on the dashboard, and the page says the new figures will appear
+   shortly (the nightly log also warns).
+
+Nothing is lost when B4 moves on. Every finished year is saved by the nightly
+job in `archive/<year>.json` (totals and map dots only, the same as the
+website shows) and used whenever the workbook no longer has it. While the
+workbook still has a year, the workbook wins and the saved copy is updated,
+so late corrections are kept. To correct a year after B4 has moved on, set
+B4 back to that year for one night, or edit its archive file.
+
 ## Files
 
 | Path | What it is |
@@ -69,6 +86,7 @@ handover notes in the private `ldsamra-stats` repository before rearranging.
 | `tools/build_stats.py` | The nightly script. Reads the workbook and writes the two JSON files. Prints counts only. |
 | `tools/osgrid.py` | Turns OS grid references into map positions. Works offline. |
 | `.github/workflows/nightly.yml` | The nightly job, about 02:23 each night. Also runs by hand, or when files change. |
+| `archive/` | Finished years, saved by the nightly job. Totals and map dots only. |
 
 Test without OneDrive, from the workbook's CSV exports:
 

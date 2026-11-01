@@ -290,6 +290,94 @@ def records_from_workbook(wb):
     return recs, hours
 
 
+# ---------------------------------------------------------------- finished years
+#
+# The workbook's export sheets only carry the year set in the yellow cell on
+# Summary (B4), plus 2019-2025 from the History sheets. When B4 moves on to a
+# new year, last year would drop out. So once a year is finished, its figures
+# are saved in archive/<year>.json in this repository, and used whenever the
+# workbook no longer has them. While the workbook still has a year, the
+# workbook wins and the saved copy is refreshed, so late corrections are kept.
+
+ARCHIVE = ROOT / "archive"
+
+
+def nonzero(series):
+    return any(series or [])
+
+
+def year_snapshot(y, calls, deps, hours, det, order, hour_override, points):
+    detail = {}
+    for dim, by_year in det.items():
+        cats = {c: v for c, v in by_year.get(y, {}).items() if nonzero(v)}
+        if cats:
+            detail[dim] = cats
+    if hour_override and y in hour_override:
+        detail["Hour of call"] = {c: v for c, v in hour_override[y].items() if nonzero(v)}
+    return plain({
+        "year": y,
+        "calls": calls[y],
+        "deployments": {t: v for t, v in deps.get(y, {}).items() if nonzero(v)},
+        "hours": {t: v for t, v in hours.get(y, {}).items() if nonzero(v)},
+        "detail": detail,
+        "order": {dim: [c for c in order.get(dim, []) if c in cats] for dim, cats in detail.items()},
+        "points": [p for p in points if p["y"] == y],
+    })
+
+
+def save_finished_years(this_year, calls, deps, hours, det, order, hour_override, points):
+    """Save every finished year the workbook still holds. Returns years saved or changed."""
+    ARCHIVE.mkdir(exist_ok=True)
+    changed = []
+    for y in sorted(calls):
+        if y >= this_year or last_month(calls[y]) != 12:
+            continue
+        snap = year_snapshot(y, calls, deps, hours, det, order, hour_override, points)
+        path = ARCHIVE / f"{y}.json"
+        text = json.dumps(snap, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
+            path.write_text(text, encoding="utf-8")
+            changed.append(y)
+    return changed
+
+
+def fill_from_archive(calls, deps, hours, det, order, hour_override, points):
+    """Use saved years for anything the workbook no longer has. Returns years used."""
+    used = []
+    if not ARCHIVE.exists():
+        return used
+    for path in sorted(ARCHIVE.glob("*.json")):
+        snap = json.loads(path.read_text(encoding="utf-8"))
+        y, took = int(snap["year"]), False
+        if not nonzero(calls.get(y)):
+            calls[y] = list(snap["calls"]); took = True
+        if not any(nonzero(v) for v in deps.get(y, {}).values()) and snap["deployments"]:
+            deps[y] = collections.defaultdict(lambda: [0] * 12, snap["deployments"]); took = True
+        if not any(nonzero(v) for v in hours.get(y, {}).values()) and snap["hours"]:
+            hours[y] = collections.defaultdict(lambda: [0] * 12, snap["hours"]); took = True
+        for dim, cats in snap["detail"].items():
+            if dim == "Hour of call" and hour_override and y in hour_override:
+                continue  # the Callouts sheet still has this year
+            if not any(nonzero(v) for v in det[dim].get(y, {}).values()):
+                det[dim][y] = collections.defaultdict(lambda: [0] * 12, cats); took = True
+                for c in snap["order"].get(dim, cats):
+                    if c not in order[dim]:
+                        order[dim].append(c)
+        if not any(p["y"] == y for p in points) and snap["points"]:
+            points.extend(snap["points"]); took = True
+        if took:
+            used.append(y)
+    return used
+
+
+def waiting_year(this_year, calls, recs):
+    """Call-outs logged for this year that the export does not count yet (B4 not moved on)."""
+    n = sum(1 for r in recs if int(r["year"]) == this_year)
+    if n and not nonzero(calls.get(this_year)):
+        return {"year": this_year, "count": n}
+    return None
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -299,7 +387,9 @@ def main():
     ap.add_argument("--details")
     ap.add_argument("--points")
     ap.add_argument("--hours", help="test only: hour counts per month")
+    ap.add_argument("--today", help="test only: pretend today is this date (YYYY-MM-DD)")
     a = ap.parse_args()
+    today = dt.date.fromisoformat(a.today) if a.today else dt.datetime.now(dt.timezone.utc).date()
 
     hour_override = None
     if a.xlsx:
@@ -317,8 +407,16 @@ def main():
 
     calls, deps, hours = build_totals(trows)
     det, order = build_detail(drows)
-    stats = assemble(calls, deps, hours, det, order, hour_override)
     points, unread = map_points(recs)
+    if hour_override is not None:
+        hour_override = dict(hour_override)
+
+    saved = save_finished_years(today.year, calls, deps, hours, det, order, hour_override, points)
+    from_archive = fill_from_archive(calls, deps, hours, det, order, hour_override, points)
+    waiting = waiting_year(today.year, calls, recs)
+
+    stats = assemble(calls, deps, hours, det, order, hour_override)
+    stats["waiting"] = waiting
 
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "stats.json").write_text(json.dumps(plain(stats), separators=(",", ":")), encoding="utf-8")
@@ -332,6 +430,14 @@ def main():
           f" ({unread} grid refs could not be read)")
     if hour_override:
         print("Hour of call worked out from the Callouts sheet's Time column.")
+    if saved:
+        print("Finished years saved or updated in archive/: " + ", ".join(map(str, saved)))
+    if from_archive:
+        print("Taken from archive/ (no longer in the workbook): " + ", ".join(map(str, from_archive)))
+    if waiting:
+        print(f"::warning::{waiting['count']} call-outs are logged for {waiting['year']}, but the export "
+              f"sheets do not count {waiting['year']} yet. Change the yellow year cell on the Summary "
+              f"sheet (B4) to {waiting['year']}.")
 
 
 if __name__ == "__main__":

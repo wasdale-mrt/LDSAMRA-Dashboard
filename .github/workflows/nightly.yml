@@ -22,7 +22,8 @@ on:
     paths: ["site/**", "tools/**", ".github/workflows/nightly.yml"]
 
 permissions:
-  contents: read
+  contents: write   # only to save finished years in archive/
+
   pages: write
   id-token: write
 
@@ -74,6 +75,17 @@ jobs:
       - name: Delete the workbook copy
         if: always()
         run: rm -f "$RUNNER_TEMP/workbook.xlsx" "$RUNNER_TEMP/rclone.conf"
+      - name: Save finished years in archive/ (totals only, already public)
+        run: |
+          if [ -n "$(git status --porcelain -- archive)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- archive
+            git commit -q -m "Save finished years (nightly job)"
+            git pull -q --rebase origin main
+            git push -q origin HEAD:main
+            echo "Saved finished years in archive/."
+          fi
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
