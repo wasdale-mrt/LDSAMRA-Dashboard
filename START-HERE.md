@@ -119,6 +119,12 @@ token or sign-in error (GitHub emails Lee), on the laptop:
    `RCLONE_CONFIG` > Update. Paste, then Update secret.
 5. Actions tab > Nightly stats > Run workflow.
 
+## Visitor numbers
+
+The page counts visits with GoatCounter (free, no cookies, no personal data).
+See them at https://ldsamra.goatcounter.com (Lee's login). Visits from
+browsers with ad blockers may not be counted.
+
 ## Rules
 
 - Never put the key, or any secret, in a file here.
