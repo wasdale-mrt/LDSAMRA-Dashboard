@@ -107,8 +107,11 @@ path at the top of the workflow if the folder name changes.
 
 ### Renewing the key
 
-Microsoft keys for personal accounts expire. If the nightly job fails with a
-token or sign-in error (GitHub emails Lee), on the laptop:
+Microsoft refresh tokens last 90 days, and the job does not save the
+refreshed one, so the key lapses about 90 days after it was last made.
+**Renew it every 2 months.** Made 1 Nov 2026, so first renewal by about
+20 Dec 2026, then about every 2 months after each renewal. If it does lapse,
+the nightly job fails and GitHub emails Lee. On the laptop:
 
 1. Open the rclone folder, click the address bar, type `cmd`, press Enter.
 2. Type `rclone config reconnect onedrive:` and press Enter. Sign in when the
