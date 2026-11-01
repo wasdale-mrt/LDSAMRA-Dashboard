@@ -54,7 +54,16 @@ jobs:
             echo "::error::The RCLONE_CONFIG secret is missing. See START-HERE.md, 'The OneDrive key'."
             exit 1
           fi
-          printf '%s\n' "$RCLONE_CONFIG_TEXT" > "$RUNNER_TEMP/rclone.conf"
+          printf '%s\n' "$RCLONE_CONFIG_TEXT" | tr -d '\r' > "$RUNNER_TEMP/rclone.conf"
+          # A copy that lost its first line ([onedrive]) still works: put it back.
+          if ! grep -q '^\[onedrive\]' "$RUNNER_TEMP/rclone.conf"; then
+            if grep -q '^type *= *onedrive' "$RUNNER_TEMP/rclone.conf"; then
+              sed -i '1i [onedrive]' "$RUNNER_TEMP/rclone.conf"
+            else
+              echo "::error::The RCLONE_CONFIG secret does not look like the rclone settings file. Copy the whole of rclone.conf again (it starts with [onedrive] and has a line 'type = onedrive')."
+              exit 1
+            fi
+          fi
           if ! rclone --config "$RUNNER_TEMP/rclone.conf" copyto "onedrive:$WORKBOOK" "$RUNNER_TEMP/workbook.xlsx" --quiet; then
             echo "::error::Could not fetch the workbook. If this says the token has expired, renew the OneDrive key (START-HERE.md, 'Renewing the key')."
             exit 1
