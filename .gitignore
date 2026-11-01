@@ -1,0 +1,5 @@
+# Made each night by the GitHub Actions job. Never kept in the repository.
+site/data/
+*.xlsx
+rclone.conf
+__pycache__/

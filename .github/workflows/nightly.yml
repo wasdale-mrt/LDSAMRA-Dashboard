@@ -1,0 +1,81 @@
+# Nightly stats: fetches the LDSAMRA call-out log from OneDrive (read only),
+# works out the figures, and publishes the site/ folder to GitHub Pages.
+#
+# Runs: every night at about 02:23 (UK winter time), when files change on
+# main, and by hand from the Actions tab ("Run workflow").
+#
+# Needs: the RCLONE_CONFIG secret (the OneDrive key), and
+# Settings > Pages > Source = "GitHub Actions".
+#
+# The workbook is downloaded into the job's temporary folder, read, and
+# deleted. It is never committed, never uploaded and never published.
+# This repository is public, so the log prints counts only.
+
+name: Nightly stats
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", "tools/**", ".github/workflows/nightly.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  WORKBOOK: "LDSAMRA - Statistics/LDSAMRA_Call_out_log.xlsx"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install the spreadsheet reader and rclone
+        run: |
+          pip install --quiet openpyxl
+          curl -fsSL https://rclone.org/install.sh | sudo bash > /dev/null
+      - name: Fetch the workbook from OneDrive (read only)
+        env:
+          RCLONE_CONFIG_TEXT: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          if [ -z "$RCLONE_CONFIG_TEXT" ]; then
+            echo "::error::The RCLONE_CONFIG secret is missing. See START-HERE.md, 'The OneDrive key'."
+            exit 1
+          fi
+          printf '%s\n' "$RCLONE_CONFIG_TEXT" > "$RUNNER_TEMP/rclone.conf"
+          if ! rclone --config "$RUNNER_TEMP/rclone.conf" copyto "onedrive:$WORKBOOK" "$RUNNER_TEMP/workbook.xlsx" --quiet; then
+            echo "::error::Could not fetch the workbook. If this says the token has expired, renew the OneDrive key (START-HERE.md, 'Renewing the key')."
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/rclone.conf"
+      - name: Work out the figures (counts only in this log)
+        run: python tools/build_stats.py --xlsx "$RUNNER_TEMP/workbook.xlsx"
+      - name: Delete the workbook copy
+        if: always()
+        run: rm -f "$RUNNER_TEMP/workbook.xlsx" "$RUNNER_TEMP/rclone.conf"
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
