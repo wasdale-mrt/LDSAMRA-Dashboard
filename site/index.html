@@ -179,7 +179,7 @@
         <li>Team hours come in monthly, so the latest month can be missing for a while.</li>
         <li>Injury, medical, age band and sex count casualties, so they can add up to more than the number of call-outs.</li>
         <li>No names, exact dates or casualty details are shown.</li>
-        <li>Visits to this page are counted anonymously with GoatCounter. No cookies are used.</li>
+        <li>Visits to this page are counted anonymously with GoatCounter. No cookies are used.<span id="visits" hidden></span></li>
       </ul>
       <p class="note" style="margin-top:10px" id="updated"></p>
     </div>
@@ -190,6 +190,23 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Visit counter: GoatCounter, no cookies, no personal data. Stats at https://ldsamra.goatcounter.com -->
 <script data-goatcounter="https://ldsamra.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+<script>
+// Show the total visit count. Needs "Allow adding visitor counts on your website" ticked in GoatCounter settings.
+// If it cannot be fetched (offline, ad blocker), the line simply stays hidden.
+(function () {
+  try {
+    fetch("https://ldsamra.goatcounter.com/counter/TOTAL.json")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || d.count == null) return;
+        var el = document.getElementById("visits");
+        el.textContent = " Visits so far: " + d.count + ".";
+        el.hidden = false;
+      })
+      .catch(function () {});
+  } catch (e) {}
+})();
+</script>
 <script>
 "use strict";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
