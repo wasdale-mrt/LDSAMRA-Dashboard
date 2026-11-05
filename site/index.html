@@ -15,14 +15,14 @@
   /* Same look as the Wasdale MRT stats page: white cards, red for this year, grey for last year. */
   :root {
     --red:#A8272E; --blue:#1f6fb2; --ink:#1d2327; --muted:#5b6670; --bg:#f6f7f5; --panel:#ffffff;
-    --line:#d9ddd8; --last:#b8bfc4; --older:#dde1e3; --grid:#eceeeb; --unknown:#9aa0a6; --hover:#f1f3f1;
+    --line:#d9ddd8; --last:#b8bfc4; --older:#dde1e3; --grid:#eceeeb; --unknown:#9aa0a6; --hover:#f1f3f1; --hiyear:#111111;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) { --red:#e0656b; --blue:#5aa2e0; --ink:#e8eaea; --muted:#a3acb3; --bg:#15191b; --panel:#1e2427;
-      --line:#343c40; --last:#5d676d; --older:#394146; --grid:#2a3135; --unknown:#7d868c; --hover:#252c2f; color-scheme:dark; }
+      --line:#343c40; --last:#5d676d; --older:#394146; --grid:#2a3135; --unknown:#7d868c; --hover:#252c2f; --hiyear:#f2f2f2; color-scheme:dark; }
   }
   :root[data-theme="dark"] { --red:#e0656b; --blue:#5aa2e0; --ink:#e8eaea; --muted:#a3acb3; --bg:#15191b; --panel:#1e2427;
-    --line:#343c40; --last:#5d676d; --older:#394146; --grid:#2a3135; --unknown:#7d868c; --hover:#252c2f; color-scheme:dark; }
+    --line:#343c40; --last:#5d676d; --older:#394146; --grid:#2a3135; --unknown:#7d868c; --hover:#252c2f; --hiyear:#f2f2f2; color-scheme:dark; }
   * { box-sizing:border-box; }
   body { margin:0; font:16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
   main { max-width:1100px; margin:0 auto; padding:20px 16px 40px; display:flex; flex-direction:column; gap:18px; }
@@ -43,6 +43,7 @@
   .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
   .sw-tick { display:inline-block; width:2px; height:12px; margin-right:6px; vertical-align:-2px; background:var(--ink); }
   .sw-dash { display:inline-block; width:16px; margin-right:6px; vertical-align:3px; border-top:2px dashed var(--red); }
+  .sw-dot { display:inline-block; width:16px; margin-right:6px; vertical-align:3px; border-top:3px dotted var(--hiyear); }
   .chart { position:relative; margin-top:8px; }
   .chart > svg { display:block; width:100%; height:auto; overflow:visible; }
   .chart > svg text { fill:var(--muted); font-size:12px; font-family:inherit; }
@@ -266,6 +267,7 @@ function legend(id, items) {
   $(id).innerHTML = items.map(([kind, colour, text]) =>
     kind === "tick" ? `<span><span class="sw-tick"></span>${esc(text)}</span>` :
     kind === "dash" ? `<span><span class="sw-dash"></span>${esc(text)}</span>` :
+    kind === "dot" ? `<span><span class="sw-dot"></span>${esc(text)}</span>` :
     `<span><span class="sw" style="background:${colour}"></span>${esc(text)}</span>`).join("");
 }
 function buttons(host, items, isOn, onClick) {
@@ -341,6 +343,21 @@ function drawTiles() {
     c.innerHTML = `<div class="label">${label}${lm < 12 ? ", " + short(lm) : ""}</div><div class="big">${fmt(v)}</div><div class="foot">${foot}</div>`;
     host.appendChild(c);
   });
+  drawHighest(host);
+}
+/* Highest recorded year. Worked out in the nightly build (tools/build_stats.py).
+   Wording rule: neutral and factual. Never "record", "target", "beat", no
+   progress bar, no "more to go". We want fewer call-outs, not more. */
+const highestFor = (y) => (S.highest && S.highest.thisYear === y) ? S.highest : null;
+function drawHighest(host) {
+  const h = highestFor(state.year); if (!h) return;
+  const c = document.createElement("div"); c.className = "card";
+  const when = h.month < 12 ? ` (${short(h.month)})` : "";
+  const foot = h.gonePast
+    ? `This year (${fmt(h.thisYearSoFar)}) has now gone past ${h.year}.`
+    : `At this point in ${h.year}${when}: ${fmt(h.atThisPoint)}. This year: ${fmt(h.thisYearSoFar)}.`;
+  c.innerHTML = `<div class="label">Highest recorded year (${h.year})</div><div class="big">${fmt(h.total)}</div><div class="foot">${foot}</div>`;
+  host.appendChild(c);
 }
 
 /* ---------- running total ---------- */
@@ -355,7 +372,8 @@ function drawRunning() {
   const lmY = lastM(k, y);
   let proj = null;
   if (lmY < 12 && lastM(k, ly) === 12) { const a = monthly(k, ly); let t = series.find((s) => s.y === y).vals[lmY - 1]; proj = [t]; for (let i = lmY; i < 12; i++) { t += a[i]; proj.push(t); } }
-  const max = niceMax(Math.max(...series.flatMap((s) => s.vals), ...(proj || [0])));
+  const hiY = k === "calls" ? highestFor(y) : null, hi = hiY && hiY.year !== ly ? hiY : null;
+  const max = niceMax(Math.max(...series.flatMap((s) => s.vals), ...(proj || [0]), ...(hi ? hi.running : [0])));
   const W = widthOf(host), H = 260, L = 44, R = 10, T = 12, B = 24, pw = W - L - R, ph = H - T - B;
   const x = (i) => L + pw * i / 11, yy = (v) => T + ph * (1 - v / max);
   const svg = el("svg", { viewBox:`0 0 ${W} ${H}`, role:"img", "aria-label":`${label}, running total` }, host);
@@ -365,6 +383,7 @@ function drawRunning() {
   series.slice().sort((a, b) => (a.y === y) - (b.y === y) || (a.y === ly) - (b.y === ly)).forEach((s) => {
     el("path", { d:s.vals.map((v, i) => (i ? "L" : "M") + x(i) + "," + yy(v)).join(""), style:`fill:none;stroke:${colour(s)};stroke-width:${s.y === y ? 3 : 2.5};stroke-linecap:round;stroke-linejoin:round` }, svg);
   });
+  if (hi) el("path", { d:hi.running.map((v, i) => (i ? "L" : "M") + x(i) + "," + yy(v)).join(""), style:"fill:none;stroke:var(--hiyear);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:0.1 6" }, svg);
   if (proj) {
     el("path", { d:proj.map((v, j) => (j ? "L" : "M") + x(lmY - 1 + j) + "," + yy(v)).join(""), style:"fill:none;stroke:var(--red);stroke-width:2;stroke-dasharray:5 5" }, svg);
     el("text", { class:"lab", x:x(11) - 4, y:yy(proj[proj.length - 1]) - 8, "text-anchor":"end" }, svg, "about " + fmt(proj[proj.length - 1]));
@@ -374,15 +393,18 @@ function drawRunning() {
   for (let i = 0; i < 12; i++) {
     const r = el("rect", { x:x(i) - pw / 22, y:0, width:pw / 11, height:H, style:"fill:transparent" }, svg);
     const rows = series.filter((s) => s.vals[i] != null).sort((a, b) => b.y - a.y).map((s) => `${s.y}: ${fmt(s.vals[i])}`);
+    if (hi && !rows.some((t) => t.startsWith(hi.year + ":"))) rows.push(`${hi.year} (highest recorded year): ${fmt(hi.running[i])}`);
     if (proj && i >= lmY) rows.unshift(`Projected: ${fmt(proj[i - lmY + 1])}`);
     hover(r, `<b>End of ${MONTHS_LONG[i]}</b><br>${rows.join("<br>")}`);
   }
   const items = [["sw", "var(--red)", String(y)]];
-  if (proj) items.push(["dash", "", "Projected"]);
+  if (proj) items.push(["dash", "", `Projected (dashed red)`]);
+  if (hi) items.push(["dot", "", `Highest recorded year (${hi.year})`]);
   if (ys.includes(ly)) items.push(["sw", "var(--last)", String(ly)]);
   if (state.allYears && ys.length > 2) items.push(["sw", "var(--older)", "Earlier years"]);
   legend("runKey", items);
-  $("runNote").textContent = `Running total of ${label.toLowerCase()}.` + (proj ? ` The dotted line shows where ${y} ends up if the rest of the year runs like ${ly}.` : "");
+  $("runNote").textContent = `Running total of ${label.toLowerCase()}.` + (proj ? ` The dashed red line shows where ${y} ends up if the rest of the year runs like ${ly}.` : "") +
+    (hi ? ` The dotted line is ${hi.year}, the full year with the most 999 calls on this page (figures start in ${S.years[0]}).` : "");
 }
 
 /* ---------- by month ---------- */

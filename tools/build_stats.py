@@ -147,6 +147,35 @@ def plain(d):
     return d
 
 
+def highest_year(calls, this_year, this_month):
+    """The busiest full year before this_year, by 999 calls. A tie goes to the later year.
+
+    Neutral wording only on the page: never "record", "target" or "beat"
+    (see START-HERE.md). Old years are monthly totals, so "at this point"
+    means up to the end of the same month as this year's latest figures.
+    Returns None if there is no full year yet.
+    """
+    full = [y for y in calls if y < this_year and last_month(calls[y]) == 12]
+    if not full:
+        return None
+    best = max(full, key=lambda y: (sum(calls[y]), y))
+    running, t = [], 0
+    for v in calls[best]:
+        t += v
+        running.append(t)
+    so_far = sum(calls[this_year][:this_month])
+    return {
+        "year": best,
+        "thisYear": this_year,
+        "month": this_month,
+        "total": running[-1],
+        "atThisPoint": running[this_month - 1] if this_month else 0,
+        "thisYearSoFar": so_far,
+        "gonePast": so_far > running[-1],
+        "running": running,
+    }
+
+
 def assemble(calls, deps, hours, det, order, hour_override=None):
     years = sorted(y for y in calls if sum(calls[y]) > 0)
     latest = years[-1]
@@ -205,6 +234,7 @@ def assemble(calls, deps, hours, det, order, hour_override=None):
         "detail": detail,
         "detailOrder": dorder,
         "recordedFrom": {k: {"year": v[0], "month": v[1]} for k, v in RECORDED_FROM.items()},
+        "highest": highest_year(calls, latest, latest_month),
     }
 
 
@@ -428,6 +458,12 @@ def main():
     print(f"{L['year']} 999 calls so far: {int(sum(stats['calls'][L['year']]))}")
     print(f"Breakdowns: {len(stats['detail'])}. Map dots: {len(points)} of {len(recs)} call-outs"
           f" ({unread} grid refs could not be read)")
+    hi = stats["highest"]
+    if hi:
+        print(f"Highest recorded year: {hi['year']} ({int(hi['total'])}); at this point {int(hi['atThisPoint'])}, "
+              f"{hi['thisYear']} so far {int(hi['thisYearSoFar'])}")
+    else:
+        print("Highest recorded year: none yet (no full years)")
     if hour_override:
         print("Hour of call worked out from the Callouts sheet's Time column.")
     if saved:

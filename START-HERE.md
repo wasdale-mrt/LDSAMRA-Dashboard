@@ -61,6 +61,37 @@ handover notes in the private `ldsamra-stats` repository before rearranging.
 - Older years: main figures from 2019, team hours from 2024, breakdowns from
   2025, map from 2026.
 
+## Highest recorded year box (added 5 Nov 2026)
+
+A box beside the other big numbers, and a dotted line on the running total
+chart. Same idea as the Wasdale MRT stats page.
+
+- **What it shows:** the full year before this one with the most 999 calls,
+  that year's total, and "At this point in YEAR: X. This year: Y." Once this
+  year is higher than that year's total, it says "This year (Y) has now gone
+  past YEAR." instead.
+- **Worked out each night** in `tools/build_stats.py` (`highest_year`), never
+  typed in. A tie goes to the later year. A year only counts once December
+  has figures.
+- **For LDSAMRA as a whole only**, on 999 calls. Not per team (Lee, 5 Nov 2026).
+- **"At this point" means to the end of the same month** as this year's latest
+  figures (for example Jan-Oct in both years). Years before 2026 are stored as
+  monthly totals, so a day-by-day comparison is not possible. This matches
+  the other boxes.
+- **Data starts in 2019.** No earlier year was busier (Lee, 5 Nov 2026).
+- **The dotted line** is black (white in dark mode). It is not drawn when the
+  highest year is last year, because last year's grey line is already there.
+  The dashed red line is still the projection. The legend and the note under
+  the chart name both.
+- **No full years yet:** the box and the line are hidden.
+- The box and line show only for the latest year, not when an older year is
+  picked.
+
+**Wording rules.** We want fewer call-outs, not more, so this must never read
+like a goal. Never call it a "record", a "target" or something to "beat". No
+progress bar and no "X more to go". Keep it neutral and factual. Anyone
+changing the wording on the page should keep to this.
+
 ## A new year
 
 The workbook's export sheets follow the yellow year cell on the Summary sheet
