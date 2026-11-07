@@ -54,6 +54,8 @@
   a { color:var(--red); }
   ul { margin:6px 0 0; padding-left:1.2em; color:var(--muted); font-size:14px; }
   .error { color:var(--muted); padding:30px 0; text-align:center; }
+  .site-foot { max-width:1100px; margin:0 auto; padding:0 16px 28px; text-align:center; color:var(--muted); font-size:13px; }
+  .site-foot p { margin:2px 0; }
 
   /* year picker and small switches */
   .years { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -186,6 +188,11 @@
     </div>
   </section>
 </main>
+<footer class="site-foot">
+  <p>&copy; <span id="footYear">2026</span> Lake District Search &amp; Mountain Rescue Association &middot; Registered charity no. 1191015</p>
+  <p><a href="https://www.ldsamra.org.uk/">ldsamra.org.uk</a> &middot; <a href="https://www.ldsamra.org.uk/donate">Support the teams</a> &middot; Designed by Lee Tunstall</p>
+</footer>
+<script>document.getElementById("footYear").textContent = new Date().getFullYear();</script>
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
