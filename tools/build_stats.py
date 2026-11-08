@@ -47,6 +47,11 @@ INJURED_GROUP = {"Injured", "Medical Emergency", "Ambulance Assist", "Body Recov
 JUNK = {"", "0", "—", "-", "None recorded"}
 # Breakdowns only recorded from this year and month (shown as a note on the page).
 RECORDED_FROM = {"Outcome": (2026, 9), "Handover": (2026, 9)}
+# Days with a call-out: each date counts once, however many call-outs or teams
+# (the old report's Day of the week chart). Worked out from the Callouts sheet's
+# Date column, so it starts in 2026. Lee, 8 Nov 2026.
+DAYS = "Days with a call-out"
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 # Breakdowns in the export that the dashboard does not show (Lee, 1 Nov 2026).
 NOT_SHOWN = {"Air outcome", "Team role"}
 
@@ -282,8 +287,34 @@ def hours_from_file(path):
     return {y: dict(sorted(c.items())) for y, c in out.items()}
 
 
+def date_of(v):
+    """The Date column -> a date, or None. Excel dates, or text as dd/mm/yyyy."""
+    if isinstance(v, dt.datetime):
+        return v.date()
+    if isinstance(v, dt.date):
+        return v
+    if isinstance(v, str):
+        for f in ("%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y"):
+            try:
+                return dt.datetime.strptime(v.strip(), f).date()
+            except ValueError:
+                pass
+    return None
+
+
+def days_from_dates(dates):
+    """{year: set of dates} -> {year: {weekday: [12 monthly counts]}}, each date once."""
+    out = {}
+    for y, ds in dates.items():
+        cats = {d: [0] * 12 for d in WEEKDAYS}
+        for d in ds:
+            cats[WEEKDAYS[d.weekday()]][d.month - 1] += 1
+        out[y] = cats
+    return out
+
+
 def records_from_workbook(wb):
-    """Callouts + Deployments sheets -> map records and hour-of-call counts."""
+    """Callouts + Deployments sheets -> map records, hour-of-call counts and call-out dates."""
     dep = collections.defaultdict(set)
     head = None
     for r in wb["Deployments"].iter_rows(values_only=True):
@@ -296,6 +327,7 @@ def records_from_workbook(wb):
             dep[str(d["Callout ID"]).strip()].add(str(d["Team"]).strip())
 
     recs, hours = [], collections.defaultdict(lambda: collections.defaultdict(lambda: [0] * 12))
+    dates = collections.defaultdict(set)
     head = None
     for r in wb["Callouts"].iter_rows(values_only=True):
         if head is None:
@@ -306,6 +338,9 @@ def records_from_workbook(wb):
         if not d.get("ID") or not d.get("Date") or not d.get("Year"):
             continue
         y, m = int(d["Year"]), int(d["Month no"])
+        day = date_of(d.get("Date"))
+        if day and day.year == y:
+            dates[y].add(day)
         hr = hour_of(d.get("Time"))
         if hr is not None:
             hours[y][f"{hr:02d}:00"][m - 1] += 1
@@ -317,7 +352,7 @@ def records_from_workbook(wb):
         })
     # Hour of call straight from the Callouts sheet's Time column (C), in hour order.
     hours = {y: dict(sorted(c.items())) for y, c in hours.items()}
-    return recs, hours
+    return recs, hours, days_from_dates(dates)
 
 
 # ---------------------------------------------------------------- finished years
@@ -421,13 +456,13 @@ def main():
     a = ap.parse_args()
     today = dt.date.fromisoformat(a.today) if a.today else dt.datetime.now(dt.timezone.utc).date()
 
-    hour_override = None
+    hour_override, days = None, {}
     if a.xlsx:
         import openpyxl
         wb = openpyxl.load_workbook(a.xlsx, data_only=True, read_only=True)
         trows = rows_from_sheet(wb, find_sheet(wb, "export - totals", "export – totals"))
         drows = rows_from_sheet(wb, find_sheet(wb, "export - detail", "export – detail"))
-        recs, hour_override = records_from_workbook(wb)
+        recs, hour_override, days = records_from_workbook(wb)
     elif a.totals and a.details:
         trows, drows = rows_from_csv(a.totals), rows_from_csv(a.details)
         recs = json.load(open(a.points, encoding="utf-8")) if a.points else []
@@ -437,6 +472,10 @@ def main():
 
     calls, deps, hours = build_totals(trows)
     det, order = build_detail(drows)
+    for y, cats in days.items():          # days with a call-out, from the Callouts sheet
+        det[DAYS][y] = collections.defaultdict(lambda: [0] * 12, cats)
+    if days:
+        order[DAYS] = list(WEEKDAYS)
     points, unread = map_points(recs)
     if hour_override is not None:
         hour_override = dict(hour_override)
@@ -466,6 +505,8 @@ def main():
         print("Highest recorded year: none yet (no full years)")
     if hour_override:
         print("Hour of call worked out from the Callouts sheet's Time column.")
+    if days:
+        print("Days with a call-out: " + ", ".join(f"{y} {sum(sum(v) for v in c.values())} days" for y, c in sorted(days.items())))
     if saved:
         print("Finished years saved or updated in archive/: " + ", ".join(map(str, saved)))
     if from_archive:

@@ -115,9 +115,15 @@ them from the website when you click **Build**. Nothing to save or load by hand.
 - **To draw a finished year again** (for example after changing the chart
   list): delete its folder in `charts/` on GitHub, then Actions > Nightly
   stats > Run workflow.
-- **Day of the week** counts call-outs, each one once however many teams
-  went. (The 2025 report's chart counted days with a call-out, so it only
-  added up to 301.)
+- **Two day-of-the-week charts** (Lee, 8 Nov 2026), on the website and in
+  the report:
+  - *Call-outs by day of the week*: each call-out counts once, however many
+    teams went. From the workbook's export.
+  - *Days with a call-out*: how many Saturdays (and so on) had at least one
+    call-out. A day counts once, however many call-outs or teams. This is
+    what the 2025 report showed (it added up to 301). Worked out each night
+    in `build_stats.py` from the Callouts sheet's Date column, so it starts
+    in 2026. Kept in `archive/` like the other breakdowns.
 - Report mode is not counted in GoatCounter.
 - Only totals are drawn, the same as the website shows.
 

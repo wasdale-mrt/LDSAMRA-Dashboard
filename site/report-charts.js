@@ -26,7 +26,8 @@ window.REPORT_CHARTS = [
   "air_support",            // Air support
   "fatalities",             // Fatalities
   "hour_of_call",           // Time of day the call came in
-  "day_of_week",            // Day of the week
+  "day_of_week",            // Call-outs by day of the week (each call-out once)
+  "days_with_callout",      // Days with a call-out (each day once; from 2026)
 ];
 
 // Also available, not used at the moment: "outcome", "handover"

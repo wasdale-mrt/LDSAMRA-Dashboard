@@ -617,7 +617,9 @@ const DETAIL = [
   ["Medical", "Medical", { note:"Counts casualties, not call-outs." }],
   ["Age band", "Age band", { keep:true, note:"Counts casualties, not call-outs." }],
   ["Sex", "Sex", { note:"Counts casualties, not call-outs." }],
-  ["Day of week", "Day of the week", { keep:true }],
+  ["Day of week", "Call-outs by day of the week", { keep:true, note:"Each call-out counts once, however many teams went." }],
+  ["Days with a call-out", "Days with a call-out", { keep:true, noShare:true,
+    note:"How many of each day had at least one call-out. A day counts once, however many call-outs or teams. Worked out from the call-out dates, so it starts in 2026." }],
   ["Hour of call", "Time of day the call came in", { hours:true, wide:true }],
   ["Air support", "Air support", {}],
   ["Outcome", "Outcome", {}],
@@ -666,7 +668,7 @@ function drawDetails() {
         (prev ? `<span><span class="sw-tick"></span>${ly}, same point</span>` : "");
       card.insertBefore(key, box);
     }
-    hbars(box, rowsFrom(cur, prev, S.detailOrder[dim], o.keep), { share:true, thisLabel:String(y), lastLabel:`${ly}, same point`, labelW:dim === "Root cause" ? (REPORT ? 330 : 240) : 190 });
+    hbars(box, rowsFrom(cur, prev, S.detailOrder[dim], o.keep), { share:!o.noShare, thisLabel:String(y), lastLabel:`${ly}, same point`, labelW:dim === "Root cause" ? (REPORT ? 330 : 240) : 190 });
   });
 }
 
@@ -737,7 +739,7 @@ Promise.all([
    report-charts.js and saves the chart on show as a picture. */
 const DIM_OF = { root_cause:"Root cause", injured_avoidable:"Injured vs Avoidable", activity:"Activity", injury:"Injury",
   medical:"Medical", age_band:"Age band", sex:"Sex", air_support:"Air support", fatalities:"Fatal reason",
-  hour_of_call:"Hour of call", day_of_week:"Day of week", outcome:"Outcome", handover:"Handover" };
+  hour_of_call:"Hour of call", day_of_week:"Day of week", days_with_callout:"Days with a call-out", outcome:"Outcome", handover:"Handover" };
 function reportDefs(y) {
   const run = (k) => { const ys = S.years.filter((yy) => lastM(k, yy) && yy <= y && yy > y - 3); return ys.length > 1 ? `, ${ys[0]} to ${y}` : `, ${y}`; };
   return {
