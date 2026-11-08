@@ -1,0 +1,105 @@
+{
+ "year": 2025,
+ "months": {
+  "calls": 12,
+  "deployments": 12,
+  "hours": 12
+ },
+ "complete": true,
+ "fixed": true,
+ "made": "2026-11-08",
+ "figuresUpdated": "2026-11-08",
+ "charts": [
+  {
+   "file": "01_calls_running.png",
+   "name": "calls_running",
+   "caption": "999 calls through the year, 2023 to 2025"
+  },
+  {
+   "file": "02_deployments_running.png",
+   "name": "deployments_running",
+   "caption": "Team deployments through the year, 2023 to 2025"
+  },
+  {
+   "file": "03_calls_by_month.png",
+   "name": "calls_by_month",
+   "caption": "999 calls by month, 2025 and 2024"
+  },
+  {
+   "file": "04_every_year.png",
+   "name": "every_year",
+   "caption": "999 calls and team deployments, every year"
+  },
+  {
+   "file": "05_call_source.png",
+   "name": "call_source",
+   "caption": "Who made the 999 call"
+  },
+  {
+   "file": "06_deployments_by_team.png",
+   "name": "deployments_by_team",
+   "caption": "Deployments by team"
+  },
+  {
+   "file": "07_team_hours.png",
+   "name": "team_hours",
+   "caption": "Team hours"
+  },
+  {
+   "file": "08_root_cause.png",
+   "name": "root_cause",
+   "caption": "Root cause"
+  },
+  {
+   "file": "09_injured_avoidable.png",
+   "name": "injured_avoidable",
+   "caption": "Injured or avoidable"
+  },
+  {
+   "file": "10_activity.png",
+   "name": "activity",
+   "caption": "Activity"
+  },
+  {
+   "file": "11_injury.png",
+   "name": "injury",
+   "caption": "Injury"
+  },
+  {
+   "file": "12_medical.png",
+   "name": "medical",
+   "caption": "Medical"
+  },
+  {
+   "file": "13_age_band.png",
+   "name": "age_band",
+   "caption": "Age band"
+  },
+  {
+   "file": "14_sex.png",
+   "name": "sex",
+   "caption": "Sex"
+  },
+  {
+   "file": "15_air_support.png",
+   "name": "air_support",
+   "caption": "Air support"
+  },
+  {
+   "file": "16_fatalities.png",
+   "name": "fatalities",
+   "caption": "Fatalities"
+  },
+  {
+   "file": "17_hour_of_call.png",
+   "name": "hour_of_call",
+   "caption": "Time of day the call came in"
+  },
+  {
+   "file": "18_day_of_week.png",
+   "name": "day_of_week",
+   "caption": "Day of the week"
+  }
+ ],
+ "skipped": []
+}
