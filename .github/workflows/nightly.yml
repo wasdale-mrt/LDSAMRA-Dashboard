@@ -75,16 +75,24 @@ jobs:
       - name: Delete the workbook copy
         if: always()
         run: rm -f "$RUNNER_TEMP/workbook.xlsx" "$RUNNER_TEMP/rclone.conf"
-      - name: Save finished years in archive/ (totals only, already public)
+      # The annual report charts. Drawn from the public figures only, after the
+      # workbook copy has gone. See START-HERE.md, "Charts for the annual report".
+      - name: Install the hidden browser for the report charts
         run: |
-          if [ -n "$(git status --porcelain -- archive)" ]; then
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium > /dev/null
+      - name: Save the report charts as pictures
+        run: python tools/make_charts.py
+      - name: Save finished years in archive/ and charts/ (totals only, already public)
+        run: |
+          if [ -n "$(git status --porcelain -- archive charts)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -- archive
+            git add -- archive charts
             git commit -q -m "Save finished years (nightly job)"
             git pull -q --rebase origin main
             git push -q origin HEAD:main
-            echo "Saved finished years in archive/."
+            echo "Saved finished years in archive/ and charts/."
           fi
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

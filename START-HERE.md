@@ -92,6 +92,35 @@ like a goal. Never call it a "record", a "target" or something to "beat". No
 progress bar and no "X more to go". Keep it neutral and factual. Anyone
 changing the wording on the page should keep to this.
 
+## Charts for the annual report (added 8 Nov 2026)
+
+The nightly job also saves the dashboard's charts as pictures for the annual
+report. The report builder (in the private `ldsamra-stats` repository) fetches
+them from the website when you click **Build**. Nothing to save or load by hand.
+
+- **Which charts, and in what order:** `site/report-charts.js`. One line per
+  chart. Delete a line to drop a chart, move lines to change the order.
+  Agreed list (Lee, 8 Nov 2026): the 2025 report's charts plus the extra
+  breakdowns, but not Outcome or Handover.
+- **How:** `tools/make_charts.py` opens the dashboard in a hidden browser in
+  report mode (`index.html?report=2025`: one chart at a time, light colours,
+  no buttons) and saves each chart as `charts/<year>/01_name.png`, `02_...`,
+  with a `manifest.json` (captions, and which months the figures cover).
+- **The latest year** (the one in B4) is drawn again every night, so late
+  team figures are picked up. It is on the website only, not kept here.
+- **Finished years** are drawn once and kept in `charts/<year>/` in this
+  repository, like `archive/`. So the report stays a fixed record. This
+  happens the first night after B4 moves on. Report charts start in 2025,
+  because the breakdowns do.
+- **To draw a finished year again** (for example after changing the chart
+  list): delete its folder in `charts/` on GitHub, then Actions > Nightly
+  stats > Run workflow.
+- **Day of the week** counts call-outs, each one once however many teams
+  went. (The 2025 report's chart counted days with a call-out, so it only
+  added up to 301.)
+- Report mode is not counted in GoatCounter.
+- Only totals are drawn, the same as the website shows.
+
 ## A new year
 
 The workbook's export sheets follow the yellow year cell on the Summary sheet
@@ -118,6 +147,9 @@ B4 back to that year for one night, or edit its archive file.
 | `tools/osgrid.py` | Turns OS grid references into map positions. Works offline. |
 | `.github/workflows/nightly.yml` | The nightly job, about 02:23 each night. Also runs by hand, or when files change. |
 | `archive/` | Finished years, saved by the nightly job. Totals and map dots only. |
+| `site/report-charts.js` | The list of charts for the annual report, in order. |
+| `tools/make_charts.py` | The nightly step that saves the report charts as pictures. |
+| `charts/` | Report charts for finished years, saved by the nightly job. |
 
 Test without OneDrive, from the workbook's CSV exports:
 

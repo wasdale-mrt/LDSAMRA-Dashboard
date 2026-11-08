@@ -88,6 +88,19 @@
   .keys .sw { border-radius:50%; }
   .explain { margin:10px 0 0; padding:10px 12px; border-radius:8px; background:var(--hover); font-size:14px; color:var(--muted); }
   @media (max-width:600px) { #spots { height:380px; } .big { font-size:34px; } }
+
+  /* Report mode (?report=YEAR): used by the nightly job to save charts as pictures
+     for the annual report. One chart at a time, light colours, no buttons. */
+  html.report body { background:#fff; }
+  html.report main { max-width:760px; padding:0; gap:0; }
+  html.report header, html.report #years, html.report #tiles, html.report h3.part, html.report #detNote,
+  html.report .switch, html.report .card > h2, html.report .site-foot, html.report .tip { display:none !important; }
+  html.report .card { display:none; border:none; border-radius:0; padding:14px 16px 12px; }
+  html.report .card.shot { display:block; }
+  html.report .grid { display:block; }
+  html.report .chart > svg text { font-size:13px; }
+  html.report .legend { font-size:14px; }
+  html.report .note { font-size:14px; }
 </style>
 </head>
 <body>
@@ -197,7 +210,15 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Visit counter: GoatCounter, no cookies, no personal data. Stats at https://ldsamra.goatcounter.com -->
-<script data-goatcounter="https://ldsamra.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+<!-- Not counted in report mode (?report=YEAR), which is the nightly job saving charts, not a visitor. -->
+<script>
+if (!/[?&]report=/.test(location.search)) {
+  var gc = document.createElement("script");
+  gc.async = true; gc.src = "https://gc.zgo.at/count.js";
+  gc.setAttribute("data-goatcounter", "https://ldsamra.goatcounter.com/count");
+  document.body.appendChild(gc);
+}
+</script>
 <script>
 // Show the total visit count. Needs "Allow adding visitor counts on your website" ticked in GoatCounter settings.
 // If it cannot be fetched (offline, ad blocker), the line simply stays hidden.
@@ -215,6 +236,7 @@
   } catch (e) {}
 })();
 </script>
+<script src="report-charts.js"></script>
 <script>
 "use strict";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -222,7 +244,10 @@ const MONTHS_LONG = ["January","February","March","April","May","June","July","A
 const MEASURES = [["calls","999 calls"],["deployments","Team deployments"],["hours","Team hours"]];
 const INJURED = ["Injured","Medical Emergency","Ambulance Assist","Body Recovery"];
 let S = null, POINTS = [];
-const state = { year:null, measure:"calls", allYears:false, tmMonth:null, hrMonth:0 };
+const state = { year:null, measure:"calls", allYears:false, tmMonth:null, hrMonth:0, runYears:0, both:false };
+// Report mode: ?report=2025 shows one chart at a time for the annual report pictures.
+const REPORT = (() => { const v = new URLSearchParams(location.search).get("report"); return v && /^\d{4}$/.test(v) ? +v : null; })();
+if (REPORT) { document.documentElement.classList.add("report"); document.documentElement.setAttribute("data-theme", "light"); }
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n == null ? "–" : Math.round(n).toLocaleString("en-GB");
@@ -275,6 +300,7 @@ function legend(id, items) {
     kind === "tick" ? `<span><span class="sw-tick"></span>${esc(text)}</span>` :
     kind === "dash" ? `<span><span class="sw-dash"></span>${esc(text)}</span>` :
     kind === "dot" ? `<span><span class="sw-dot"></span>${esc(text)}</span>` :
+    kind === "dashg" ? `<span><span class="sw-dash" style="border-top-color:var(--muted)"></span>${esc(text)}</span>` :
     `<span><span class="sw" style="background:${colour}"></span>${esc(text)}</span>`).join("");
 }
 function buttons(host, items, isOn, onClick) {
@@ -374,22 +400,30 @@ function drawRunning() {
   buttons($("runAll"), [[false, `${y} and ${ly}`], [true, "All years"]], (v) => v === state.allYears, (v) => { state.allYears = v; drawRunning(); });
   const host = clear("running");
   if (!lastM(k, y)) { host.innerHTML = `<div class="error">${label} not recorded for ${y}.</div>`; $("runKey").innerHTML = ""; $("runNote").textContent = ""; return; }
-  const ys = S.years.filter((yy) => lastM(k, yy) && (state.allYears ? yy <= y : (yy === y || yy === ly)));
+  const ys = S.years.filter((yy) => lastM(k, yy) && (state.runYears ? yy <= y && yy > y - state.runYears
+    : state.allYears ? yy <= y : (yy === y || yy === ly)));
   const series = ys.map((yy) => { let t = 0; return { y:yy, vals:monthly(k, yy).slice(0, lastM(k, yy)).map((v) => t += v) }; });
   const lmY = lastM(k, y);
   let proj = null;
   if (lmY < 12 && lastM(k, ly) === 12) { const a = monthly(k, ly); let t = series.find((s) => s.y === y).vals[lmY - 1]; proj = [t]; for (let i = lmY; i < 12; i++) { t += a[i]; proj.push(t); } }
   const hiY = k === "calls" ? highestFor(y) : null, hi = hiY && hiY.year !== ly ? hiY : null;
   const max = niceMax(Math.max(...series.flatMap((s) => s.vals), ...(proj || [0]), ...(hi ? hi.running : [0])));
-  const W = widthOf(host), H = 260, L = 44, R = 10, T = 12, B = 24, pw = W - L - R, ph = H - T - B;
+  const W = widthOf(host), H = 260, L = 44, R = state.runYears ? 48 : 10, T = 12, B = 24, pw = W - L - R, ph = H - T - B;
   const x = (i) => L + pw * i / 11, yy = (v) => T + ph * (1 - v / max);
   const svg = el("svg", { viewBox:`0 0 ${W} ${H}`, role:"img", "aria-label":`${label}, running total` }, host);
   ticks(max).forEach((v) => { el("line", { x1:L, x2:W - R, y1:yy(v), y2:yy(v), style:"stroke:var(--grid)" }, svg); el("text", { x:L - 6, y:yy(v) + 4, "text-anchor":"end" }, svg, fmt(v)); });
   MONTHS.forEach((mn, i) => { if (W > 420 || i % 2 === 0) el("text", { x:x(i), y:H - 6, "text-anchor":"middle" }, svg, mn); });
   const colour = (s) => s.y === y ? "var(--red)" : s.y === ly ? "var(--last)" : "var(--older)";
+  // In the report's few-years view, older years are dashed grey so they still show up in print.
+  const older = (s) => state.runYears && s.y !== y && s.y !== ly;
   series.slice().sort((a, b) => (a.y === y) - (b.y === y) || (a.y === ly) - (b.y === ly)).forEach((s) => {
-    el("path", { d:s.vals.map((v, i) => (i ? "L" : "M") + x(i) + "," + yy(v)).join(""), style:`fill:none;stroke:${colour(s)};stroke-width:${s.y === y ? 3 : 2.5};stroke-linecap:round;stroke-linejoin:round` }, svg);
+    el("path", { d:s.vals.map((v, i) => (i ? "L" : "M") + x(i) + "," + yy(v)).join(""), style:`fill:none;stroke:${older(s) ? "var(--muted)" : colour(s)};stroke-width:${s.y === y ? 3 : 2.5};stroke-linecap:round;stroke-linejoin:round` + (older(s) ? ";stroke-dasharray:6 5" : "") }, svg);
   });
+  if (state.runYears) { // year-end figure at the end of each full line, nudged apart so they never overlap
+    const labs = series.filter((s) => s.vals.length === 12).map((s) => ({ v:s.vals[11], p:yy(s.vals[11]) + 4 })).sort((a, b) => a.p - b.p);
+    labs.forEach((l, i) => { if (i && l.p < labs[i - 1].p + 15) l.p = labs[i - 1].p + 15; });
+    labs.forEach((l) => el("text", { class:"lab", x:x(11) + 7, y:l.p, "text-anchor":"start" }, svg, fmt(l.v)));
+  }
   if (hi) el("path", { d:hi.running.map((v, i) => (i ? "L" : "M") + x(i) + "," + yy(v)).join(""), style:"fill:none;stroke:var(--hiyear);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:0.1 6" }, svg);
   if (proj) {
     el("path", { d:proj.map((v, j) => (j ? "L" : "M") + x(lmY - 1 + j) + "," + yy(v)).join(""), style:"fill:none;stroke:var(--red);stroke-width:2;stroke-dasharray:5 5" }, svg);
@@ -408,22 +442,27 @@ function drawRunning() {
   if (proj) items.push(["dash", "", `Projected (dashed red)`]);
   if (hi) items.push(["dot", "", `Highest recorded year (${hi.year})`]);
   if (ys.includes(ly)) items.push(["sw", "var(--last)", String(ly)]);
-  if (state.allYears && ys.length > 2) items.push(["sw", "var(--older)", "Earlier years"]);
+  if (state.runYears) ys.filter((yy) => yy < ly).sort((a, b) => b - a).forEach((yy) => items.push(["dashg", "", String(yy)]));
+  else if (state.allYears && ys.length > 2) items.push(["sw", "var(--older)", "Earlier years"]);
   legend("runKey", items);
   $("runNote").textContent = `Running total of ${label.toLowerCase()}.` + (proj ? ` The dashed red line shows where ${y} ends up if the rest of the year runs like ${ly}.` : "") +
     (hi ? ` The dotted line is ${hi.year}, the full year with the most 999 calls on this page (figures start in ${S.years[0]}).` : "");
 }
 
 /* ---------- by month ---------- */
-function columns(host, labels, ser, aria, tipFn) {
-  const W = widthOf(host), H = 240, L = 40, R = 6, T = 10, B = 24, pw = W - L - R, ph = H - T - B;
+function columns(host, labels, ser, aria, tipFn, opts = {}) {
+  const W = widthOf(host), H = 240, L = 40, R = 6, T = opts.values ? 22 : 10, B = 24, pw = W - L - R, ph = H - T - B;
   const max = niceMax(Math.max(1, ...ser.flatMap((s) => s.vals.slice(0, s.lm))));
   const band = pw / labels.length, inner = band * 0.8, bw = Math.max(2, inner / ser.length - 2), yy = (v) => T + ph * (1 - v / max);
   const svg = el("svg", { viewBox:`0 0 ${W} ${H}`, role:"img", "aria-label":aria }, host);
   ticks(max).forEach((v) => { el("line", { x1:L, x2:W - R, y1:yy(v), y2:yy(v), style:"stroke:var(--grid)" }, svg); el("text", { x:L - 6, y:yy(v) + 4, "text-anchor":"end" }, svg, fmt(v)); });
   labels.forEach((lb, i) => {
     const x0 = L + band * i + (band - inner) / 2;
-    ser.forEach((s, j) => { if (i >= s.lm || !s.vals[i]) return; el("rect", { x:x0 + j * (bw + 2), width:bw, rx:2, y:yy(s.vals[i]), height:yy(0) - yy(s.vals[i]), style:`fill:${s.c}` }, svg); });
+    ser.forEach((s, j) => {
+      if (i >= s.lm || !s.vals[i]) return;
+      el("rect", { x:x0 + j * (bw + 2), width:bw, rx:2, y:yy(s.vals[i]), height:yy(0) - yy(s.vals[i]), style:`fill:${s.c}` }, svg);
+      if (opts.values) el("text", { class:"lab", x:x0 + j * (bw + 2) + bw / 2, y:yy(s.vals[i]) - 5, "text-anchor":"middle", style:"font-size:11px" }, svg, fmt(s.vals[i]) + ((opts.star || [])[i] ? "*" : ""));
+    });
     if (band > 26 || i % 2 === 0) el("text", { x:L + band * i + band / 2, y:H - 6, "text-anchor":"middle" }, svg, band < 26 && lb.length > 2 ? lb.slice(0, 1) : lb);
     hover(el("rect", { x:L + band * i, y:0, width:band, height:H, style:"fill:transparent" }, svg), tipFn(i));
   });
@@ -478,9 +517,10 @@ function hbars(host, rows, opts = {}) {
     el("text", { class:"lab", x:m.l - 8, y:y0 + bh / 2 + 4, "text-anchor":"end" }, svg, fit(r.name, m.l - 10));
     if (r.this_year) el("rect", { x:m.l, y:y0, width:Math.max(0, x(r.this_year) - m.l), height:bh, rx:2, style:"fill:var(--red)" }, svg);
     if (r.last_year != null) el("line", { x1:x(r.last_year), x2:x(r.last_year), y1:y0 - 3, y2:y0 + bh + 3, style:"stroke:var(--ink);stroke-width:2" }, svg);
-    const end = x(r.this_year), tk = r.last_year != null ? x(r.last_year) : -99;
-    const lx = tk >= end - 2 && tk < end + 26 ? tk + 6 : end + 6;
-    el("text", { x:lx, y:y0 + bh / 2 + 4 }, svg, fmt(r.this_year) + (opts.share && r.this_year ? " · " + share(r.this_year, total) : ""));
+    const txt = fmt(r.this_year) + (opts.share && r.this_year ? " · " + share(r.this_year, total) : "");
+    const end = x(r.this_year), tk = r.last_year != null ? x(r.last_year) : -99, tw = txt.length * (REPORT ? 7.6 : 7);
+    const lx = tk >= end - 2 && tk < end + tw + 10 ? tk + 6 : end + 6; // never write over last year's line
+    el("text", { x:lx, y:y0 + bh / 2 + 4 }, svg, txt);
     hover(el("rect", { x:0, y:m.t + i * row, width:W, height:row, style:"fill:transparent" }, svg),
       `<b>${esc(r.name)}</b><br>${opts.thisLabel}: ${fmt(r.this_year)}${total && r.this_year ? " (" + share(r.this_year, total) + ")" : ""}` +
       (r.last_year != null ? `<br>${opts.lastLabel}: ${fmt(r.last_year)}` : ""));
@@ -504,9 +544,10 @@ function drawSource() {
   $("srcNote").textContent = `999 calls, ${span(m)} ${y}.`;
 }
 function drawEveryYear() {
+  if (state.both) return drawEveryYearBoth();
   const k = state.measure, label = measureLabel(k), host = clear("everyYear");
   $("yrsTitle").textContent = `${label}, every year`;
-  const ys = S.years.filter((y) => lastM(k, y)), vals = ys.map((y) => upTo(monthly(k, y), lastM(k, y)));
+  const ys = S.years.filter((y) => lastM(k, y) && (!REPORT || y <= state.year)), vals = ys.map((y) => upTo(monthly(k, y), lastM(k, y)));
   const W = widthOf(host), H = 240, L = 44, R = 6, T = 18, B = 24, pw = W - L - R, ph = H - T - B;
   const max = niceMax(Math.max(...vals)), band = pw / ys.length, bw = Math.min(40, band * 0.65), yy = (v) => T + ph * (1 - v / max);
   const svg = el("svg", { viewBox:`0 0 ${W} ${H}`, role:"img", "aria-label":`${label} every year` }, host);
@@ -521,6 +562,24 @@ function drawEveryYear() {
   const part = ys.find((y) => lastM(k, y) < 12);
   $("yrsNote").textContent = `Each year on record. The chosen year is red.` + (part ? ` * ${part} so far.` : "");
 }
+// 999 calls and team deployments side by side for each year (used for the annual report).
+function drawEveryYearBoth() {
+  const host = clear("everyYear");
+  $("yrsTitle").textContent = "999 calls and team deployments, every year";
+  const ys = S.years.filter((y) => lastM("calls", y) && y <= state.year);
+  const tot = (k) => ys.map((y) => lastM(k, y) ? upTo(monthly(k, y), lastM(k, y)) : 0);
+  const ser = [{ y:"999 calls", vals:tot("calls"), lm:ys.length, c:"var(--red)" },
+               { y:"Team deployments", vals:tot("deployments"), lm:ys.length, c:"var(--last)" }];
+  const star = ys.map((y) => lastM("calls", y) < 12);
+  columns(host, ys.map(String), ser, "999 calls and team deployments every year",
+    (i) => `<b>${ys[i]}</b><br>` + ser.map((s) => `${s.y}: ${fmt(s.vals[i])}`).join("<br>"), { values:true, star });
+  const key = document.createElement("div"); key.className = "legend";
+  key.innerHTML = ser.map((s) => `<span><span class="sw" style="background:${s.c}"></span>${esc(s.y)}</span>`).join("");
+  host.prepend(key);
+  const part = ys.find((y) => lastM("calls", y) < 12);
+  $("yrsNote").textContent = "Each year on record, from " + ys[0] + "." +
+    (part ? ` * ${part} to the end of ${MONTHS_LONG[lastM("calls", part) - 1]}.` : "");
+}
 
 /* ---------- teams ---------- */
 function drawTeams() {
@@ -528,7 +587,7 @@ function drawTeams() {
   if (!m) { $("teams").innerHTML = `<div class="error">Not recorded for ${y}.</div>`; $("teamMonth").innerHTML = ""; return; }
   const cur = teamTotals("deployments", y, 0, m), prev = hasYear(ly) ? teamTotals("deployments", ly, 0, m) : null;
   hbars($("teams"), rowsFrom(cur, prev, S.teams, true), { share:true, thisLabel:String(y), lastLabel:`${ly}, same point` });
-  $("teamNote").textContent = `${span(m)} ${y}. The percentage is each team's share of all deployments.`;
+  $("teamNote").textContent = `${m >= 12 ? "The whole of" : span(m)} ${y}. The percentage is each team's share of all deployments.`;
 
   if (state.tmMonth === null || state.tmMonth >= m) state.tmMonth = m - 1;
   buttons($("tmMonths"), MONTHS.slice(0, m).map((n, i) => [i, n]), (v) => v === state.tmMonth, (v) => { state.tmMonth = v; drawTeams(); });
@@ -577,7 +636,7 @@ function drawDetails() {
   $("detNote").textContent = `${span(m)} ${y} in red. The black line is the same months of ${ly}.`;
   const jobs = [];
   DETAIL.forEach(([dim, title, o]) => {
-    const card = document.createElement("div"); card.className = "card" + (o.wide ? " wide" : "");
+    const card = document.createElement("div"); card.className = "card" + (o.wide ? " wide" : ""); card.dataset.dim = dim;
     let note = o.note || "";
     const rf = (S.recordedFrom || {})[dim];
     if (rf && (y < rf.year || (y === rf.year && m >= rf.month))) note = (note ? note + " " : "") + `Recorded from ${MONTHS_LONG[rf.month - 1]} ${rf.year}.`;
@@ -601,7 +660,13 @@ function drawDetails() {
       columns(box, hrs.map((h) => h.slice(0, 2)), ser, title, (i) => `<b>${hrs[i]} to ${String((i + 1) % 24).padStart(2, "0")}:00</b><br>` + ser.map((s) => `${s.y}: ${fmt(s.vals[i])}`).join("<br>"));
       return;
     }
-    hbars(box, rowsFrom(cur, prev, S.detailOrder[dim], o.keep), { share:true, thisLabel:String(y), lastLabel:`${ly}, same point`, labelW:dim === "Root cause" ? 240 : 190 });
+    if (REPORT) { // a picture has no section heading above it, so say what red and the black line mean
+      const key = document.createElement("div"); key.className = "legend";
+      key.innerHTML = `<span><span class="sw" style="background:var(--red)"></span>${y}${m < 12 ? ", " + short(m) : ""}</span>` +
+        (prev ? `<span><span class="sw-tick"></span>${ly}, same point</span>` : "");
+      card.insertBefore(key, box);
+    }
+    hbars(box, rowsFrom(cur, prev, S.detailOrder[dim], o.keep), { share:true, thisLabel:String(y), lastLabel:`${ly}, same point`, labelW:dim === "Root cause" ? (REPORT ? 330 : 240) : 190 });
   });
 }
 
@@ -661,8 +726,53 @@ function drawAll() {
 Promise.all([
   fetch("data/stats.json", { cache:"no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
   fetch("data/callouts.json", { cache:"no-store" }).then((r) => r.ok ? r.json() : []).catch(() => []),
-]).then(([s, p]) => { S = s; POINTS = p; state.year = S.latest.year; drawAll(); })
-  .catch(() => { $("sub").textContent = "The figures could not be loaded. Please try again later."; });
+]).then(([s, p]) => {
+  S = s; POINTS = p;
+  if (REPORT) return startReport();
+  state.year = S.latest.year; drawAll();
+}).catch(() => { $("sub").textContent = "The figures could not be loaded. Please try again later."; window.REPORT_ERROR = "figures not loaded"; });
+
+/* ---------- report mode: one chart at a time, for the annual report pictures ----------
+   tools/make_charts.py opens ?report=YEAR, then calls reportChart(name) for each name in
+   report-charts.js and saves the chart on show as a picture. */
+const DIM_OF = { root_cause:"Root cause", injured_avoidable:"Injured vs Avoidable", activity:"Activity", injury:"Injury",
+  medical:"Medical", age_band:"Age band", sex:"Sex", air_support:"Air support", fatalities:"Fatal reason",
+  hour_of_call:"Hour of call", day_of_week:"Day of week", outcome:"Outcome", handover:"Handover" };
+function reportDefs(y) {
+  const run = (k) => { const ys = S.years.filter((yy) => lastM(k, yy) && yy <= y && yy > y - 3); return ys.length > 1 ? `, ${ys[0]} to ${y}` : `, ${y}`; };
+  return {
+    calls_running:       { id:"running",    caption:"999 calls through the year" + run("calls"),           draw:() => { state.measure = "calls"; state.runYears = 3; drawRunning(); } },
+    deployments_running: { id:"running",    caption:"Team deployments through the year" + run("deployments"), draw:() => { state.measure = "deployments"; state.runYears = 3; drawRunning(); } },
+    calls_by_month:      { id:"monthly",    caption:`999 calls by month, ${y}` + (hasYear(y - 1) ? ` and ${y - 1}` : ""), draw:() => { state.measure = "calls"; drawMonthly(); } },
+    every_year:          { id:"everyYear",  caption:"999 calls and team deployments, every year",         draw:() => { state.both = true; drawEveryYear(); } },
+    call_source:         { id:"source",     caption:"Who made the 999 call",                              draw:() => drawSource() },
+    deployments_by_team: { id:"teams",      caption:"Deployments by team",                                draw:() => drawTeams() },
+    team_hours:          { id:"hours",      caption:"Team hours",                                         draw:() => { state.hrMonth = 0; drawHours(); } },
+  };
+}
+function startReport() {
+  if (!hasYear(REPORT)) { window.REPORT_ERROR = `no figures for ${REPORT}`; return; }
+  state.year = REPORT;
+  drawHeader(); drawSource(); drawTeams(); drawHours(); drawDetails();
+  window.REPORT_INFO = { year:REPORT, months:{ calls:lastM("calls", REPORT), deployments:lastM("deployments", REPORT), hours:lastM("hours", REPORT) },
+    updated:S.updated, charts:(window.REPORT_CHARTS || []).slice() };
+  window.REPORT_READY = true;
+}
+window.reportChart = function (name) {
+  const y = state.year, defs = reportDefs(y);
+  document.querySelectorAll(".card.shot").forEach((c) => c.classList.remove("shot"));
+  Object.assign(state, { measure:"calls", runYears:0, both:false, allYears:false });
+  let card, caption;
+  if (defs[name]) { defs[name].draw(); card = $(defs[name].id).closest(".card"); caption = defs[name].caption; }
+  else if (DIM_OF[name]) {
+    card = document.querySelector(`#details .card[data-dim="${DIM_OF[name]}"]`);
+    const d = DETAIL.find((r) => r[0] === DIM_OF[name]); caption = d ? d[1] : DIM_OF[name];
+  }
+  else return { ok:false, why:"not a chart name" };
+  if (!card || card.querySelector(".error") || !card.querySelector("svg")) return { ok:false, why:`not recorded for ${y}` };
+  card.classList.add("shot"); hideTip();
+  return { ok:true, caption };
+};
 
 let resizeTimer, lastWidth = innerWidth;
 addEventListener("resize", () => {
