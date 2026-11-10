@@ -48,6 +48,19 @@
   .chart > svg { display:block; width:100%; height:auto; overflow:visible; }
   .chart > svg text { fill:var(--muted); font-size:12px; font-family:inherit; }
   .chart > svg .lab { fill:var(--ink); }
+
+  /* "Save PNG" button on each chart card (not the map or the table). */
+  .card.can-save { position:relative; }
+  .card.can-save > h2 { padding-right:96px; }
+  .savepng { position:absolute; top:12px; right:12px; display:inline-flex; align-items:center; gap:5px;
+             font:inherit; font-size:13px; line-height:1; padding:6px 9px; border-radius:7px;
+             border:1px solid var(--line); background:var(--panel); color:var(--muted); cursor:pointer; }
+  .savepng:hover { color:var(--ink); border-color:var(--muted); }
+  .savepng:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .savepng:disabled { opacity:.6; cursor:default; }
+  .savepng[hidden] { display:none; }
+  .savepng svg { width:14px; height:14px; }
+  @media print { .savepng { display:none; } }
   .tip { position:fixed; pointer-events:none; background:var(--panel); color:var(--ink); border:1px solid var(--line);
          border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,.15); padding:6px 9px; font-size:13px;
          white-space:nowrap; z-index:2000; display:none; }
@@ -94,7 +107,7 @@
   html.report body { background:#fff; }
   html.report main { max-width:760px; padding:0; gap:0; }
   html.report header, html.report #years, html.report #tiles, html.report h3.part, html.report #detNote,
-  html.report .switch, html.report .card > h2, html.report .site-foot, html.report .tip { display:none !important; }
+  html.report .switch, html.report .card > h2, html.report .site-foot, html.report .tip, html.report .savepng { display:none !important; }
   html.report .card { display:none; border:none; border-radius:0; padding:14px 16px 12px; }
   html.report .card.shot { display:block; }
   html.report .grid { display:block; }
@@ -160,7 +173,7 @@
     </div>
     <div class="card">
       <h2>Deployments by team, one month</h2>
-      <p class="note">Pick a month to compare each team with the same month last year.</p>
+      <p class="note" data-nosave>Pick a month to compare each team with the same month last year.</p>
       <div class="switch" id="tmMonths"></div>
       <div class="legend" id="tmKey"></div>
       <div class="chart" id="teamMonth"></div>
@@ -396,7 +409,7 @@ function drawHighest(host) {
 /* ---------- running total ---------- */
 function drawRunning() {
   const y = state.year, ly = y - 1, k = state.measure, label = measureLabel(k);
-  buttons($("measure"), MEASURES, (v) => v === k, (v) => { state.measure = v; drawRunning(); drawMonthly(); drawTable(); drawEveryYear(); });
+  buttons($("measure"), MEASURES, (v) => v === k, (v) => { state.measure = v; drawRunning(); drawMonthly(); drawTable(); drawEveryYear(); addSaveButtons(); });
   buttons($("runAll"), [[false, `${y} and ${ly}`], [true, "All years"]], (v) => v === state.allYears, (v) => { state.allYears = v; drawRunning(); });
   const host = clear("running");
   if (!lastM(k, y)) { host.innerHTML = `<div class="error">${label} not recorded for ${y}.</div>`; $("runKey").innerHTML = ""; $("runNote").textContent = ""; return; }
@@ -670,6 +683,7 @@ function drawDetails() {
     }
     hbars(box, rowsFrom(cur, prev, S.detailOrder[dim], o.keep), { share:!o.noShare, thisLabel:String(y), lastLabel:`${ly}, same point`, labelW:dim === "Root cause" ? (REPORT ? 330 : 240) : 190 });
   });
+  addSaveButtons(); // these cards are made afresh each time, so they need their buttons again
 }
 
 /* ---------- map ---------- */
@@ -719,10 +733,153 @@ function drawMap() {
   if (unknown) ex.textContent = `Why some dots are grey: a new call-out log started part-way through 2026. Call-outs before September ${y === 2026 ? "2026 " : ""}were brought across from the old records, which kept root causes only as monthly totals, not against each call-out. So those call-outs can be placed on the map but cannot be matched to a cause. Every call-out logged in the new system has its cause recorded.`;
 }
 
+/* ---------- save one chart as a picture (PNG) ----------
+   Each chart card gets a small "Save PNG" button. Not the map (its tiles belong to
+   OpenTopoMap and cannot always be saved) and not the monthly figures table.
+   The picture is drawn in the visitor's browser: light colours on white, with the
+   chart's title, note and key, and a small LDSAMRA footer so a chart shared on its
+   own still says where it came from and how up to date it is. Nothing is sent anywhere. */
+const LIGHT = { red:"#A8272E", blue:"#1f6fb2", ink:"#1d2327", muted:"#5b6670", bg:"#f6f7f5", panel:"#ffffff", line:"#d9ddd8",
+  last:"#b8bfc4", older:"#dde1e3", grid:"#eceeeb", unknown:"#9aa0a6", hover:"#f1f3f1", hiyear:"#111111" };
+const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const lightColours = (s) => String(s || "").replace(/var\(--([a-z]+)\)/g, (_, k) => LIGHT[k] || LIGHT.ink);
+const SAVE_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v7.5m0 0L4.8 6.8M8 10l3.2-3.2M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function addSaveButtons() {
+  if (REPORT) return; // report pictures are made by the nightly job, without buttons
+  document.querySelectorAll("main .card").forEach((card) => {
+    const box = card.querySelector(".chart"), h2 = card.querySelector(":scope > h2");
+    if (!box || !h2 || box.id === "spots") return;
+    const had = card.querySelector(".savepng");
+    if (had) { had.hidden = !card.querySelector(".chart > svg"); return; } // hidden when it says "Not recorded"
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "savepng";
+    b.title = "Save this chart as a picture (PNG)";
+    b.setAttribute("aria-label", "Save this chart as a picture");
+    b.innerHTML = SAVE_ICON + "<span>Save PNG</span>";
+    b.onclick = () => saveCard(card, b);
+    b.hidden = !card.querySelector(".chart > svg");
+    card.classList.add("can-save");
+    h2.after(b);
+  });
+}
+function flash(btn, words) {
+  const t = btn.querySelector("span"), old = "Save PNG";
+  t.textContent = words; setTimeout(() => { t.textContent = old; }, 2500);
+}
+// Read a chart's key (the coloured squares and lines above it) so it can be drawn into the picture.
+function readKey(card) {
+  const keys = [];
+  card.querySelectorAll(".legend").forEach((lg) => [...lg.children].forEach((span) => {
+    const text = span.textContent.trim(); if (!text) return;
+    const sw = span.querySelector(".sw, .sw-tick, .sw-dash, .sw-dot"), kind = sw ? sw.className.split(" ")[0] : "";
+    const st = lightColours(sw ? sw.getAttribute("style") : ""), c = (st.match(/(?:background|border-top-color)\s*:\s*([^;]+)/) || [])[1];
+    const colour = c ? c.trim() : kind === "sw-tick" ? LIGHT.ink : kind === "sw-dot" ? LIGHT.hiyear : LIGHT.red;
+    keys.push({ kind, colour, text });
+  }));
+  // The breakdown cards have no key of their own (the section note explains red and the black line), so add one.
+  if (!keys.length && card.closest("#details")) {
+    const y = state.year, m = lastM("calls", y);
+    keys.push({ kind:"sw", colour:LIGHT.red, text:`${y}${m < 12 ? ", " + short(m) : ""}` });
+    if (card.querySelector('.chart > svg line[style*="--ink"]')) keys.push({ kind:"sw-tick", colour:LIGHT.ink, text:`${y - 1}, same point` });
+  }
+  return keys;
+}
+// Copy a chart with every colour set to the light theme, and turn it into an image.
+function chartImage(svg) {
+  const vb = svg.viewBox.baseVal, w = vb.width, h = vb.height, c = svg.cloneNode(true);
+  c.setAttribute("xmlns", NS); c.setAttribute("width", w); c.setAttribute("height", h);
+  c.querySelectorAll("[style]").forEach((n) => n.setAttribute("style", lightColours(n.getAttribute("style"))));
+  c.querySelectorAll("text").forEach((t) => t.setAttribute("style",
+    `fill:${t.classList.contains("lab") ? LIGHT.ink : LIGHT.muted};font-size:12px;font-family:${FONT};` + (t.getAttribute("style") || "")));
+  const src = new XMLSerializer().serializeToString(c);
+  return new Promise((ok, bad) => {
+    const img = new Image();
+    img.onload = () => ok({ img, w, h }); img.onerror = bad;
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(src);
+  });
+}
+function wrapText(ctx, s, maxW) {
+  const out = []; let line = "";
+  s.split(/\s+/).forEach((word) => {
+    const t = line ? line + " " + word : word;
+    if (line && ctx.measureText(t).width > maxW) { out.push(line); line = word; } else line = t;
+  });
+  if (line) out.push(line);
+  return out;
+}
+function drawSwatch(ctx, k, x, cy) {
+  ctx.save(); ctx.fillStyle = ctx.strokeStyle = k.colour;
+  if (k.kind === "sw") { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, cy - 5, 10, 10, 2) : ctx.rect(x, cy - 5, 10, 10); ctx.fill(); }
+  else if (k.kind === "sw-tick") ctx.fillRect(x, cy - 6, 2, 12);
+  else if (k.kind === "sw-dash") { ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x + 16, cy); ctx.stroke(); }
+  else if (k.kind === "sw-dot") [2, 8, 14].forEach((dx) => { ctx.beginPath(); ctx.arc(x + dx, cy, 1.6, 0, 7); ctx.fill(); });
+  ctx.restore();
+}
+const swatchW = (k) => ({ "sw":10, "sw-tick":2, "sw-dash":16, "sw-dot":16 })[k.kind] || 0;
+// Lay out the picture. Run once to measure the height, then again to draw.
+function paint(ctx, W, p, draw) {
+  const P = 20; let y = P;
+  const text = (s, font, colour, lh) => {
+    ctx.font = font;
+    wrapText(ctx, s, W - 2 * P).forEach((l) => { if (draw) { ctx.fillStyle = colour; ctx.fillText(l, P, y + lh * 0.74); } y += lh; });
+  };
+  text(p.title, `600 18px ${FONT}`, LIGHT.ink, 25);
+  p.notes.forEach((n) => text(n, `14px ${FONT}`, LIGHT.muted, 19));
+  if (p.keys.length) {
+    y += 6; ctx.font = `13px ${FONT}`;
+    let x = P; const lh = 20;
+    p.keys.forEach((k) => {
+      const sw = swatchW(k), gap = sw ? 6 : 0, iw = sw + gap + ctx.measureText(k.text).width;
+      if (x > P && x + iw > W - P) { x = P; y += lh; }
+      if (draw) { drawSwatch(ctx, k, x, y + lh / 2); ctx.fillStyle = LIGHT.muted; ctx.fillText(k.text, x + sw + gap, y + 14); }
+      x += iw + 16;
+    });
+    y += lh;
+  }
+  y += 10;
+  p.images.forEach(({ img, w, h }) => { if (draw) ctx.drawImage(img, P, y, w, h); y += h + 8; });
+  y += 6;
+  if (draw) { ctx.fillStyle = LIGHT.line; ctx.fillRect(P, y, W - 2 * P, 1); }
+  y += 10;
+  text(p.footer, `12px ${FONT}`, LIGHT.muted, 16);
+  return y + P - 6;
+}
+async function saveCard(card, btn) {
+  const svgs = [...card.querySelectorAll(".chart > svg")];
+  if (!svgs.length) { flash(btn, "No chart to save"); return; }
+  btn.disabled = true; hideTip();
+  try {
+    const title = card.querySelector(":scope > h2").textContent.trim();
+    const notes = [...card.querySelectorAll(":scope > p.note")]
+      .filter((n) => !n.hidden && !n.hasAttribute("data-nosave") && n.textContent.trim()).map((n) => n.textContent.trim());
+    const updated = new Date(S.updated).toLocaleDateString("en-GB", { dateStyle:"long" });
+    const p = { title, notes, keys:readKey(card), images:await Promise.all(svgs.map(chartImage)),
+      footer:`LDSAMRA · ldsamra.org.uk · Figures updated ${updated}` };
+    const W = Math.max(360, ...p.images.map((i) => i.w)) + 40, scale = 2;
+    const cv = document.createElement("canvas"), ctx = cv.getContext("2d");
+    const H = paint(ctx, W, p, false);
+    cv.width = W * scale; cv.height = Math.ceil(H * scale);
+    ctx.scale(scale, scale); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+    paint(ctx, W, p, true);
+    const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
+    if (!blob) throw new Error("no picture");
+    let name = "ldsamra-" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!name.includes(String(state.year))) name += "-" + state.year;
+    const a = document.createElement("a"), url = URL.createObjectURL(blob);
+    a.href = url; a.download = name + ".png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    console.log("Save PNG:", e); flash(btn, "Could not save");
+  } finally { btn.disabled = false; }
+}
+
 /* ---------- draw everything ---------- */
 function drawAll() {
   drawYears(); drawHeader(); drawTiles(); drawRunning(); drawMonthly(); drawTable();
   drawSource(); drawEveryYear(); drawTeams(); drawHours(); drawDetails(); drawMap();
+  addSaveButtons();
 }
 
 Promise.all([

@@ -127,6 +127,28 @@ them from the website when you click **Build**. Nothing to save or load by hand.
 - Report mode is not counted in GoatCounter.
 - Only totals are drawn, the same as the website shows.
 
+## Save a chart as a picture (added 10 Nov 2026)
+
+Every chart on the dashboard has a small **Save PNG** button in its top
+right corner, so a visitor can save just one chart.
+
+- **Which charts:** every chart card. Not the map (its tiles belong to
+  OpenTopoMap and cannot always be saved) and not the monthly figures table
+  (Lee, 10 Nov 2026). The button hides itself on a card that says
+  "Not recorded".
+- **What the picture shows:** the chart as it is on screen (same year, month
+  or measure picked), with its title, note and key, always in light colours
+  on white so it prints and pastes well. Breakdown charts get a key saying
+  which year and months are red and what the black line is.
+- **Small footer** on every picture: "LDSAMRA · ldsamra.org.uk · Figures
+  updated <date>", so a chart shared on its own still says where it came
+  from and how up to date it is.
+- **File name:** for example `ldsamra-root-cause-2026.png`.
+- Made in the visitor's own browser. Nothing is sent anywhere.
+- The code is in `site/index.html`, under "save one chart as a picture".
+- Report mode (`?report=YEAR`) has no buttons, so the annual report
+  pictures are not changed.
+
 ## A new year
 
 The workbook's export sheets follow the yellow year cell on the Summary sheet
@@ -148,7 +170,7 @@ B4 back to that year for one night, or edit its archive file.
 
 | Path | What it is |
 |---|---|
-| `site/index.html` | The dashboard. Reads `data/stats.json` and `data/callouts.json`. Same look as the Wasdale stats page. |
+| `site/index.html` | The dashboard. Reads `data/stats.json` and `data/callouts.json`. Same look as the Wasdale stats page. Includes the Save PNG buttons. |
 | `tools/build_stats.py` | The nightly script. Reads the workbook and writes the two JSON files. Prints counts only. |
 | `tools/osgrid.py` | Turns OS grid references into map positions. Works offline. |
 | `.github/workflows/nightly.yml` | The nightly job, about 02:23 each night. Also runs by hand, or when files change. |
