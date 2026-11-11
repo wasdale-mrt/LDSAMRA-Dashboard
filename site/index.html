@@ -166,13 +166,13 @@
   <h3 class="part">Teams</h3>
   <section class="grid">
     <div class="card">
-      <h2>Deployments by team</h2>
+      <h2>Responses by team</h2>
       <p class="note" id="teamNote"></p>
       <div class="legend"><span><span class="sw" style="background:var(--red)"></span><span class="yThis">This year</span></span><span><span class="sw-tick"></span><span class="yLast">Last year</span>, same point</span></div>
       <div class="chart" id="teams"></div>
     </div>
     <div class="card">
-      <h2>Deployments by team, one month</h2>
+      <h2>Responses by team, one month</h2>
       <p class="note" data-nosave>Pick a month to compare each team with the same month last year.</p>
       <div class="switch" id="tmMonths"></div>
       <div class="legend" id="tmKey"></div>
@@ -254,7 +254,7 @@ if (!/[?&]report=/.test(location.search)) {
 "use strict";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const MEASURES = [["calls","999 calls"],["deployments","Team deployments"],["hours","Team hours"]];
+const MEASURES = [["calls","999 calls"],["deployments","Team responses"],["hours","Team hours"]];
 const INJURED = ["Injured","Medical Emergency","Ambulance Assist","Body Recovery"];
 let S = null, POINTS = [];
 const state = { year:null, measure:"calls", allYears:false, tmMonth:null, hrMonth:0, runYears:0, both:false };
@@ -575,16 +575,16 @@ function drawEveryYear() {
   const part = ys.find((y) => lastM(k, y) < 12);
   $("yrsNote").textContent = `Each year on record. The chosen year is red.` + (part ? ` * ${part} so far.` : "");
 }
-// 999 calls and team deployments side by side for each year (used for the annual report).
+// 999 calls and team responses side by side for each year (used for the annual report).
 function drawEveryYearBoth() {
   const host = clear("everyYear");
-  $("yrsTitle").textContent = "999 calls and team deployments, every year";
+  $("yrsTitle").textContent = "999 calls and team responses, every year";
   const ys = S.years.filter((y) => lastM("calls", y) && y <= state.year);
   const tot = (k) => ys.map((y) => lastM(k, y) ? upTo(monthly(k, y), lastM(k, y)) : 0);
   const ser = [{ y:"999 calls", vals:tot("calls"), lm:ys.length, c:"var(--red)" },
-               { y:"Team deployments", vals:tot("deployments"), lm:ys.length, c:"var(--last)" }];
+               { y:"Team responses", vals:tot("deployments"), lm:ys.length, c:"var(--last)" }];
   const star = ys.map((y) => lastM("calls", y) < 12);
-  columns(host, ys.map(String), ser, "999 calls and team deployments every year",
+  columns(host, ys.map(String), ser, "999 calls and team responses every year",
     (i) => `<b>${ys[i]}</b><br>` + ser.map((s) => `${s.y}: ${fmt(s.vals[i])}`).join("<br>"), { values:true, star });
   const key = document.createElement("div"); key.className = "legend";
   key.innerHTML = ser.map((s) => `<span><span class="sw" style="background:${s.c}"></span>${esc(s.y)}</span>`).join("");
@@ -600,7 +600,7 @@ function drawTeams() {
   if (!m) { $("teams").innerHTML = `<div class="error">Not recorded for ${y}.</div>`; $("teamMonth").innerHTML = ""; return; }
   const cur = teamTotals("deployments", y, 0, m), prev = hasYear(ly) ? teamTotals("deployments", ly, 0, m) : null;
   hbars($("teams"), rowsFrom(cur, prev, S.teams, true), { share:true, thisLabel:String(y), lastLabel:`${ly}, same point` });
-  $("teamNote").textContent = `${m >= 12 ? "The whole of" : span(m)} ${y}. The percentage is each team's share of all deployments.`;
+  $("teamNote").textContent = `${m >= 12 ? "The whole of" : span(m)} ${y}. The percentage is each team's share of all responses.`;
 
   if (state.tmMonth === null || state.tmMonth >= m) state.tmMonth = m - 1;
   buttons($("tmMonths"), MONTHS.slice(0, m).map((n, i) => [i, n]), (v) => v === state.tmMonth, (v) => { state.tmMonth = v; drawTeams(); });
@@ -901,11 +901,11 @@ function reportDefs(y) {
   const run = (k) => { const ys = S.years.filter((yy) => lastM(k, yy) && yy <= y && yy > y - 3); return ys.length > 1 ? `, ${ys[0]} to ${y}` : `, ${y}`; };
   return {
     calls_running:       { id:"running",    caption:"999 calls through the year" + run("calls"),           draw:() => { state.measure = "calls"; state.runYears = 3; drawRunning(); } },
-    deployments_running: { id:"running",    caption:"Team deployments through the year" + run("deployments"), draw:() => { state.measure = "deployments"; state.runYears = 3; drawRunning(); } },
+    deployments_running: { id:"running",    caption:"Team responses through the year" + run("deployments"), draw:() => { state.measure = "deployments"; state.runYears = 3; drawRunning(); } },
     calls_by_month:      { id:"monthly",    caption:`999 calls by month, ${y}` + (hasYear(y - 1) ? ` and ${y - 1}` : ""), draw:() => { state.measure = "calls"; drawMonthly(); } },
-    every_year:          { id:"everyYear",  caption:"999 calls and team deployments, every year",         draw:() => { state.both = true; drawEveryYear(); } },
+    every_year:          { id:"everyYear",  caption:"999 calls and team responses, every year",         draw:() => { state.both = true; drawEveryYear(); } },
     call_source:         { id:"source",     caption:"Who made the 999 call",                              draw:() => drawSource() },
-    deployments_by_team: { id:"teams",      caption:"Deployments by team",                                draw:() => drawTeams() },
+    deployments_by_team: { id:"teams",      caption:"Responses by team",                                draw:() => drawTeams() },
     team_hours:          { id:"hours",      caption:"Team hours",                                         draw:() => { state.hrMonth = 0; drawHours(); } },
   };
 }
