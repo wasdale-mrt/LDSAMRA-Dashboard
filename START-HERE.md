@@ -1,7 +1,7 @@
 # LDSAMRA dashboard - start here
 
 Public call-out statistics and map for the Lake District Search & Mountain
-Rescue Association, updated nightly from the LDSAMRA call-out log.
+Rescue Association, updated every two hours from the LDSAMRA call-out log.
 Repository: https://github.com/wasdale-mrt/LDSAMRA-Dashboard (public).
 Website: https://wasdale-mrt.github.io/LDSAMRA-Dashboard/ (once switched on).
 
@@ -13,8 +13,10 @@ Set up 1 November 2026 by Lee Tunstall with Claude. Same pattern as
 1. The statistics officer fills in `LDSAMRA_Call_out_log.xlsx` in the shared
    OneDrive folder `LDSAMRA - Statistics` (Lee's personal OneDrive for now).
    That is the only job. Nobody needs GitHub for this.
-2. Each night a GitHub Actions job fetches the workbook with the OneDrive key,
-   works out the figures, and publishes the dashboard.
+2. Every two hours a GitHub Actions job fetches the workbook with the OneDrive
+   key, works out the figures, and publishes the dashboard. (Nightly only until
+   12 Nov 2026. The "nightly job" below means this job, whenever it runs.)
+   The page shows the date and UK time it last ran.
 3. No laptop needs to be on.
 
 The workbook is downloaded into the job's temporary folder, read, and deleted.
@@ -106,7 +108,7 @@ them from the website when you click **Build**. Nothing to save or load by hand.
   report mode (`index.html?report=2025`: one chart at a time, light colours,
   no buttons) and saves each chart as `charts/<year>/01_name.png`, `02_...`,
   with a `manifest.json` (captions, and which months the figures cover).
-- **The latest year** (the one in B4) is drawn again every night, so late
+- **The latest year** (the one in B4) is drawn again on every run, so late
   team figures are picked up. It is on the website only, not kept here.
 - **Finished years** are drawn once and kept in `charts/<year>/` in this
   repository, like `archive/`. So the report stays a fixed record. This
@@ -173,7 +175,7 @@ B4 back to that year for one night, or edit its archive file.
 | `site/index.html` | The dashboard. Reads `data/stats.json` and `data/callouts.json`. Same look as the Wasdale stats page. Includes the Save PNG buttons. |
 | `tools/build_stats.py` | The nightly script. Reads the workbook and writes the two JSON files. Prints counts only. |
 | `tools/osgrid.py` | Turns OS grid references into map positions. Works offline. |
-| `.github/workflows/nightly.yml` | The nightly job, about 02:23 each night. Also runs by hand, or when files change. |
+| `.github/workflows/nightly.yml` | The job. Every 2 hours at about 23 minutes past (GitHub can start it up to an hour late). Also runs by hand, or when files change. To go back to nightly, set the cron line to `"23 2 * * *"`. |
 | `archive/` | Finished years, saved by the nightly job. Totals and map dots only. |
 | `site/report-charts.js` | The list of charts for the annual report, in order. |
 | `tools/make_charts.py` | The nightly step that saves the report charts as pictures. |

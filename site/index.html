@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="LDSAMRA Stats">
 <title>LDSAMRA Call-out Stats</title>
-<meta name="description" content="Lake District Search & Mountain Rescue Association call-out figures, updated each night.">
+<meta name="description" content="Lake District Search & Mountain Rescue Association call-out figures, updated every two hours.">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   /* Same look as the Wasdale MRT stats page: white cards, red for this year, grey for last year. */
@@ -203,7 +203,7 @@
     <div class="card wide">
       <h2>About these figures</h2>
       <ul>
-        <li>Read each night from the LDSAMRA call-out log.</li>
+        <li>Read every two hours from the LDSAMRA call-out log.</li>
         <li>"Last year" means the same months last year, so the numbers are fair to compare.</li>
         <li>Team hours come in monthly, so the latest month can be missing for a while.</li>
         <li>Injury, medical, age band and sex count casualties, so they can add up to more than the number of call-outs.</li>
@@ -366,7 +366,9 @@ function drawHeader() {
   const w = S.waiting;
   $("waitNote").hidden = !w;
   if (w) $("waitNote").textContent = `Figures for ${w.year} will appear here shortly. Until then the latest full figures are shown.`;
-  $("updated").textContent = "Last updated " + new Date(S.updated).toLocaleDateString("en-GB", { dateStyle:"long" }) + ".";
+  $("updated").textContent = "Last updated " + (S.updatedAt
+    ? new Date(S.updatedAt).toLocaleString("en-GB", { dateStyle:"long", timeStyle:"short", timeZone:"Europe/London" })
+    : new Date(S.updated).toLocaleDateString("en-GB", { dateStyle:"long" })) + ".";
   document.querySelectorAll(".yThis").forEach((e) => e.textContent = String(y));
   document.querySelectorAll(".yLast").forEach((e) => e.textContent = String(ly));
 }

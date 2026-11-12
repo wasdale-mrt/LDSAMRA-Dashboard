@@ -229,6 +229,9 @@ def assemble(calls, deps, hours, det, order, hour_override=None):
 
     return {
         "updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d"),
+        # Date and time of this run (UTC). The page shows it in UK time, now the
+        # job runs every 2 hours. "updated" stays date-only for the report charts.
+        "updatedAt": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "latest": {"year": latest, "month": latest_month},
         "years": years,
         "teams": teams,
